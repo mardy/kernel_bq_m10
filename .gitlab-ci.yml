@@ -1,0 +1,39 @@
+image: ubuntu:20.04
+
+
+build:
+  stage: build
+  cache:
+    - key: apt-cache
+      paths:
+        - apt-cache/
+    - key: downloads
+      paths:
+        - downloads
+  script:
+    - export APT_CACHE_DIR=`pwd`/apt-cache && mkdir -pv $APT_CACHE_DIR
+    - apt update -yq
+    - |
+        apt -o dir::cache::archives="$APT_CACHE_DIR" install \
+            -y --no-install-recommends \
+            abootimg build-essential bc \
+            ca-certificates wget
+    # Get the cross-compiler
+    - |
+        GCC_CROSS_TAG="android-6.0.1_r81"
+        if [ ! -f "downloads/${GCC_CROSS_TAG}.tar.gz" ]; then
+            mkdir -p downloads
+            cd downloads
+            wget -c -nv "https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/+archive/${GCC_CROSS_TAG}.tar.gz"
+            cd -
+        fi
+        mkdir -p compiler
+        tar xzf "downloads/${GCC_CROSS_TAG}.tar.gz" -C compiler 
+    - export KERNEL_CROSS_COMPILE=$(pwd)/compiler/bin/aarch64-linux-android-
+    - export KERNEL_OUT=$(pwd)/build
+    - ./aquaris_m10-build.sh
+    - mkdir -p out
+    - cp build/boot.img out/
+  artifacts:
+    paths:
+      - out/*
